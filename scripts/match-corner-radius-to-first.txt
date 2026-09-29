@@ -1,0 +1,70 @@
+Sub MatchCornerRadiusToFirst()
+
+    Dim sel As Selection
+    Dim refShp As Shape
+    Dim shp As Shape
+
+    Dim refMinSide As Double
+    Dim refAdj As Double
+    Dim radius As Double
+
+    Dim minSide As Double
+    Dim newAdj As Double
+
+    Set sel = ActiveWindow.Selection
+
+    If sel.Type <> ppSelectionShapes Then
+        MsgBox "Select at least two shapes."
+        Exit Sub
+    End If
+
+    If sel.ShapeRange.Count < 2 Then
+        MsgBox "Select at least two shapes."
+        Exit Sub
+    End If
+
+    Set refShp = sel.ShapeRange(1)
+
+    ' Reference shape must support adjustments
+    On Error Resume Next
+    refAdj = refShp.Adjustments.Item(1)
+
+    If Err.Number <> 0 Then
+        Err.Clear
+        On Error GoTo 0
+        MsgBox "The first selected shape does not have an adjustable corner radius."
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    refMinSide = refShp.Width
+    If refShp.Height < refMinSide Then
+        refMinSide = refShp.Height
+    End If
+
+    radius = refAdj * refMinSide
+
+    ' Apply to the rest
+    For Each shp In sel.ShapeRange
+
+        If shp.Name <> refShp.Name Then
+
+            minSide = shp.Width
+            If shp.Height < minSide Then
+                minSide = shp.Height
+            End If
+
+            newAdj = radius / minSide
+
+            If newAdj > 0.5 Then newAdj = 0.5
+            If newAdj < 0 Then newAdj = 0
+
+            On Error Resume Next
+            shp.Adjustments.Item(1) = newAdj
+            On Error GoTo 0
+
+        End If
+
+    Next shp
+
+End Sub

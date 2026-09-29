@@ -1,0 +1,172 @@
+Option Explicit
+
+
+Sub BuildGalleryLinks()
+
+    Dim gallerySlides As Variant
+    
+    ' ========================================
+    ' НОМЕРА СЛАЙДОВ ГАЛЕРЕИ
+    ' ========================================
+    gallerySlides = Array(73, 74, 75)
+    
+    
+    Dim pres As Presentation
+    Dim sld As Slide
+    Dim targetSld As Slide
+    
+    Dim hotspots() As Object
+    Dim hotspotCount As Long
+    
+    Dim i As Long
+    Dim j As Long
+    Dim galleryCount As Long
+    
+    Dim tmp As Object
+    
+    Set pres = ActivePresentation
+    
+    galleryCount = UBound(gallerySlides) - LBound(gallerySlides) + 1
+    
+    
+    ' Проходим по всем слайдам галереи
+    For i = LBound(gallerySlides) To UBound(gallerySlides)
+        
+        Set sld = pres.Slides(gallerySlides(i))
+        
+        ' Находим прозрачные прямоугольники
+        hotspotCount = GetGalleryHotspots(sld, hotspots)
+        
+        
+        ' Проверяем количество
+        If hotspotCount < galleryCount Then
+            
+            MsgBox _
+                "Slide " & gallerySlides(i) & ":" & vbCrLf & _
+                "Found only " & hotspotCount & _
+                " invisible rectangles, but gallery contains " & _
+                galleryCount & " slides.", _
+                vbExclamation, _
+                "Gallery links"
+                
+            Exit Sub
+        
+        End If
+        
+        
+        ' ----------------------------------------
+        ' Сортируем прямоугольники слева направо
+        ' ----------------------------------------
+        
+        For j = 1 To hotspotCount - 1
+            
+            Dim k As Long
+            
+            For k = j + 1 To hotspotCount
+                
+                If hotspots(k).Left < hotspots(j).Left Then
+                    
+                    Set tmp = hotspots(j)
+                    Set hotspots(j) = hotspots(k)
+                    Set hotspots(k) = tmp
+                    
+                End If
+                
+            Next k
+            
+        Next j
+        
+        
+        ' ----------------------------------------
+        ' Назначаем ссылки
+        ' ----------------------------------------
+        
+        For j = 1 To galleryCount
+            
+            ' Сначала очищаем старое действие
+            With hotspots(j).ActionSettings(ppMouseClick)
+                .Action = ppActionNone
+            End With
+            
+            
+            ' Текущая картинка:
+            ' никакой ссылки
+            If j = (i - LBound(gallerySlides) + 1) Then
+                
+                With hotspots(j).ActionSettings(ppMouseClick)
+                    .Action = ppActionNone
+                End With
+                
+            
+            ' Остальные картинки:
+            ' ссылка на соответствующий слайд
+            Else
+                
+                Set targetSld = pres.Slides(gallerySlides(LBound(gallerySlides) + j - 1))
+                
+                With hotspots(j).ActionSettings(ppMouseClick)
+                    
+                    .Action = ppActionHyperlink
+                    
+                    .Hyperlink.SubAddress = _
+                        targetSld.SlideID & "," & _
+                        targetSld.SlideIndex & "," & _
+                        targetSld.Name
+                    
+                End With
+                
+            End If
+            
+        Next j
+        
+    Next i
+    
+    
+    MsgBox _
+        "Gallery links created for " & galleryCount & " slides.", _
+        vbInformation, _
+        "Gallery links"
+
+End Sub
+
+
+
+Private Function GetGalleryHotspots( _
+    ByVal sld As Slide, _
+    ByRef hotspots() As Object _
+) As Long
+
+    Dim shp As Shape
+    Dim count As Long
+    
+    count = 0
+    
+    
+    For Each shp In sld.Shapes
+        
+        ' Только обычный AutoShape
+        If shp.Type = msoAutoShape Then
+            
+            ' Только прямоугольник
+            If shp.AutoShapeType = msoShapeRectangle Then
+                
+                ' Нет заливки и нет линии
+                If shp.Fill.Visible = msoFalse _
+                   And shp.Line.Visible = msoFalse Then
+                    
+                    count = count + 1
+                    ReDim Preserve hotspots(1 To count)
+                    Set hotspots(count) = shp
+                    
+                End If
+                
+            End If
+            
+        End If
+        
+    Next shp
+    
+    
+    GetGalleryHotspots = count
+
+End Function

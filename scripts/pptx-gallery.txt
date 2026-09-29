@@ -1,0 +1,189 @@
+Option Explicit
+
+
+Sub BuildGalleryLinks()
+
+    Dim firstSlide As Long
+    Dim lastSlide As Long
+    
+    ' ========================================
+    ' ДИАПАЗОН СЛАЙДОВ ГАЛЕРЕИ
+    ' ========================================
+    firstSlide = 103
+    lastSlide = 118
+    
+    
+    Dim pres As Presentation
+    Dim sld As Slide
+    Dim targetSld As Slide
+    
+    Dim hotspots() As Object
+    Dim hotspotCount As Long
+    
+    Dim currentSlide As Long
+    Dim j As Long
+    Dim k As Long
+    
+    Dim galleryCount As Long
+    Dim currentGalleryIndex As Long
+    
+    Dim tmp As Object
+    
+    Set pres = ActivePresentation
+    
+    galleryCount = lastSlide - firstSlide + 1
+    
+    
+    ' Проверка диапазона
+    If firstSlide < 1 Or lastSlide > pres.Slides.Count Or firstSlide > lastSlide Then
+        
+        MsgBox _
+            "Invalid slide range: " & firstSlide & "-" & lastSlide, _
+            vbExclamation, _
+            "Gallery links"
+        
+        Exit Sub
+        
+    End If
+    
+    
+    ' Проходим по слайдам галереи
+    For currentSlide = firstSlide To lastSlide
+        
+        Set sld = pres.Slides(currentSlide)
+        
+        ' Позиция текущего слайда внутри галереи:
+        ' 103 = 1, 104 = 2, 105 = 3 и т.д.
+        currentGalleryIndex = currentSlide - firstSlide + 1
+        
+        
+        ' Находим прозрачные прямоугольники
+        hotspotCount = GetGalleryHotspots(sld, hotspots)
+        
+        
+        ' Проверяем количество
+        If hotspotCount < galleryCount Then
+            
+            MsgBox _
+                "Slide " & currentSlide & ":" & vbCrLf & _
+                "Found only " & hotspotCount & _
+                " invisible rectangles, but gallery contains " & _
+                galleryCount & " slides.", _
+                vbExclamation, _
+                "Gallery links"
+                
+            Exit Sub
+        
+        End If
+        
+        
+        ' ----------------------------------------
+        ' Сортируем прямоугольники слева направо
+        ' ----------------------------------------
+        
+        For j = 1 To hotspotCount - 1
+            
+            For k = j + 1 To hotspotCount
+                
+                If hotspots(k).Left < hotspots(j).Left Then
+                    
+                    Set tmp = hotspots(j)
+                    Set hotspots(j) = hotspots(k)
+                    Set hotspots(k) = tmp
+                    
+                End If
+                
+            Next k
+            
+        Next j
+        
+        
+        ' ----------------------------------------
+        ' Назначаем ссылки
+        ' ----------------------------------------
+        
+        For j = 1 To galleryCount
+            
+            ' Сначала удаляем старое действие
+            With hotspots(j).ActionSettings(ppMouseClick)
+                .Action = ppActionNone
+            End With
+            
+            
+            ' Текущая миниатюра:
+            ' без ссылки
+            If j = currentGalleryIndex Then
+                
+                hotspots(j).ActionSettings(ppMouseClick).Action = ppActionNone
+                
+            
+            ' Остальные:
+            ' ссылка на соответствующий слайд
+            Else
+                
+                Set targetSld = pres.Slides(firstSlide + j - 1)
+                
+                With hotspots(j).ActionSettings(ppMouseClick)
+                    
+                    .Action = ppActionHyperlink
+                    
+                    .Hyperlink.SubAddress = _
+                        targetSld.SlideID & "," & _
+                        targetSld.SlideIndex & "," & _
+                        targetSld.Name
+                    
+                End With
+                
+            End If
+            
+        Next j
+        
+    Next currentSlide
+    
+    
+    MsgBox _
+        "Gallery links created for slides " & _
+        firstSlide & "-" & lastSlide & ".", _
+        vbInformation, _
+        "Gallery links"
+
+End Sub
+
+
+
+Private Function GetGalleryHotspots( _
+    ByVal sld As Slide, _
+    ByRef hotspots() As Object _
+) As Long
+
+    Dim shp As Shape
+    Dim count As Long
+    
+    count = 0
+    
+    
+    For Each shp In sld.Shapes
+        
+        If shp.Type = msoAutoShape Then
+            
+            If shp.AutoShapeType = msoShapeRectangle Then
+                
+                If shp.Fill.Visible = msoFalse _
+                   And shp.Line.Visible = msoFalse Then
+                    
+                    count = count + 1
+                    ReDim Preserve hotspots(1 To count)
+                    Set hotspots(count) = shp
+                    
+                End If
+                
+            End If
+            
+        End If
+        
+    Next shp
+    
+    
+    GetGalleryHotspots = count
+
+End Function
