@@ -1,0 +1,80 @@
+Option Explicit
+
+Private StoredCornerRadius As Double
+Private HasStoredRadius As Boolean
+
+
+Sub CopyCornerRadius()
+
+    Dim shp As Shape
+    Dim minSide As Double
+    Dim adj As Double
+
+    If ActiveWindow.Selection.Type <> ppSelectionShapes Then
+        MsgBox "Select one reference shape."
+        Exit Sub
+    End If
+
+    If ActiveWindow.Selection.ShapeRange.Count <> 1 Then
+        MsgBox "Select exactly one reference shape."
+        Exit Sub
+    End If
+
+    Set shp = ActiveWindow.Selection.ShapeRange(1)
+
+    On Error Resume Next
+    adj = shp.Adjustments.Item(1)
+
+    If Err.Number <> 0 Then
+        Err.Clear
+        On Error GoTo 0
+        MsgBox "This shape has no adjustable corner radius."
+        Exit Sub
+    End If
+
+    On Error GoTo 0
+
+    minSide = shp.Width
+    If shp.Height < minSide Then minSide = shp.Height
+
+    StoredCornerRadius = adj * minSide
+    HasStoredRadius = True
+
+    MsgBox "Corner radius copied."
+
+End Sub
+
+
+Sub PasteCornerRadius()
+
+    Dim shp As Shape
+    Dim minSide As Double
+    Dim newAdj As Double
+
+    If HasStoredRadius = False Then
+        MsgBox "First select the reference shape and run CopyCornerRadius."
+        Exit Sub
+    End If
+
+    If ActiveWindow.Selection.Type <> ppSelectionShapes Then
+        MsgBox "Select one or more target shapes."
+        Exit Sub
+    End If
+
+    For Each shp In ActiveWindow.Selection.ShapeRange
+
+        minSide = shp.Width
+        If shp.Height < minSide Then minSide = shp.Height
+
+        newAdj = StoredCornerRadius / minSide
+
+        If newAdj > 0.5 Then newAdj = 0.5
+        If newAdj < 0 Then newAdj = 0
+
+        On Error Resume Next
+        shp.Adjustments.Item(1) = newAdj
+        On Error GoTo 0
+
+    Next shp
+
+End Sub
