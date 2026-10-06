@@ -1,0 +1,65 @@
+Public savedLeft As Single
+Public savedTop As Single
+Public savedWidth As Single
+Public savedHeight As Single
+Public savedRotation As Single
+Public geometrySaved As Boolean
+
+Sub CopyVideoGeometry()
+
+    Dim shp As Shape
+
+    If ActiveWindow.Selection.Type <> ppSelectionShapes Then
+        MsgBox "Select a video.", vbExclamation
+        Exit Sub
+    End If
+
+    If ActiveWindow.Selection.ShapeRange.Count <> 1 Then
+        MsgBox "Select one video only.", vbExclamation
+        Exit Sub
+    End If
+
+    Set shp = ActiveWindow.Selection.ShapeRange(1)
+
+    savedLeft = shp.Left
+    savedTop = shp.Top
+    savedWidth = shp.Width
+    savedHeight = shp.Height
+    savedRotation = shp.Rotation
+
+    geometrySaved = True
+
+End Sub
+
+
+Sub PasteVideoGeometry()
+
+    Dim shp As Shape
+
+    If geometrySaved = False Then
+        MsgBox "Copy geometry from the source video first.", vbExclamation
+        Exit Sub
+    End If
+
+    If ActiveWindow.Selection.Type <> ppSelectionShapes Then
+        MsgBox "Select the target video.", vbExclamation
+        Exit Sub
+    End If
+
+    If ActiveWindow.Selection.ShapeRange.Count <> 1 Then
+        MsgBox "Select one video only.", vbExclamation
+        Exit Sub
+    End If
+
+    Set shp = ActiveWindow.Selection.ShapeRange(1)
+
+    With shp
+        .LockAspectRatio = msoFalse
+        .Left = savedLeft
+        .Top = savedTop
+        .Width = savedWidth
+        .Height = savedHeight
+        .Rotation = savedRotation
+    End With
+
+End Sub
