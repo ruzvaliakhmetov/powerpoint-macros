@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="iconCornerCopy" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="images/corner_copy.png"/>
+  <Relationship Id="iconCornerPaste" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="images/corner_paste.png"/>
+  <Relationship Id="iconGallery" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="images/gallery.png"/>
+  <Relationship Id="iconVideoCopy" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="images/video_geometry_copy.png"/>
+  <Relationship Id="iconVideoPaste" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="images/video_geometry_paste.png"/>
+</Relationships>

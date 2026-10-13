@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui">
+  <ribbon>
+    <tabs>
+      <tab id="tabMyTools" label="My Tools" insertAfterMso="TabHome">
+        <group id="groupCornerRadius" label="Corner Radius">
+          <button id="btnCopyCornerRadius" label="Copy Radius" size="large"
+                  image="iconCornerCopy" onAction="RibbonCopyCornerRadius"
+                  screentip="Copy radius from selected shape"
+                  supertip="Copies the absolute corner radius for pasting onto other shapes."/>
+          <button id="btnPasteCornerRadius" label="Paste Radius" size="large"
+                  image="iconCornerPaste" onAction="RibbonPasteCornerRadius"
+                  screentip="Paste copied radius"
+                  supertip="Matches the corner radius on the selected shapes."/>
+        </group>
+        <group id="groupGallery" label="Gallery">
+          <button id="btnBuildGalleryLinks" label="Build Links" size="large"
+                  image="iconGallery" onAction="RibbonBuildGalleryLinks"
+                  screentip="Link gallery thumbnails"
+                  supertip="Asks for the first and last gallery slides, then links invisible rectangles to the slides."/>
+        </group>
+        <group id="groupVideoGeometry" label="Video Geometry">
+          <button id="btnCopyVideoGeometry" label="Copy Geometry" size="large"
+                  image="iconVideoCopy" onAction="RibbonCopyVideoGeometry"
+                  screentip="Copy video position and size"
+                  supertip="Stores position, size and rotation of the selected video."/>
+          <button id="btnPasteVideoGeometry" label="Paste Geometry" size="large"
+                  image="iconVideoPaste" onAction="RibbonPasteVideoGeometry"
+                  screentip="Apply saved video geometry"
+                  supertip="Applies saved position, size and rotation to the selected video."/>
+        </group>
+      </tab>
+    </tabs>
+  </ribbon>
+</customUI>

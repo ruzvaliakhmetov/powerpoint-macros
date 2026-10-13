@@ -1,0 +1,290 @@
+Attribute VB_Name = "MyTools"
+Option Explicit
+
+' ========= Saved values (persist while the VBA project is loaded) =========
+Private StoredCornerRadius As Double
+Private HasStoredRadius As Boolean
+
+Private savedLeft As Single
+Private savedTop As Single
+Private savedWidth As Single
+Private savedHeight As Single
+Private savedRotation As Single
+Private geometrySaved As Boolean
+
+' ======================= Corner radius ================================
+Public Sub CopyCornerRadius()
+    Dim shp As Shape
+    Dim minSide As Double
+    Dim adj As Double
+
+    If ActiveWindow.Selection.Type <> ppSelectionShapes Then
+        MsgBox "Select one reference shape.", vbExclamation, "Corner radius"
+        Exit Sub
+    End If
+
+    If ActiveWindow.Selection.ShapeRange.Count <> 1 Then
+        MsgBox "Select exactly one reference shape.", vbExclamation, "Corner radius"
+        Exit Sub
+    End If
+
+    Set shp = ActiveWindow.Selection.ShapeRange(1)
+
+    On Error Resume Next
+    adj = shp.Adjustments.Item(1)
+    If Err.Number <> 0 Then
+        Err.Clear
+        On Error GoTo 0
+        MsgBox "This shape has no adjustable corner radius.", vbExclamation, "Corner radius"
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    minSide = shp.Width
+    If shp.Height < minSide Then minSide = shp.Height
+
+    StoredCornerRadius = adj * minSide
+    HasStoredRadius = True
+End Sub
+
+Public Sub PasteCornerRadius()
+    Dim shp As Shape
+    Dim minSide As Double
+    Dim newAdj As Double
+
+    If Not HasStoredRadius Then
+        MsgBox "First select the reference shape and run Copy Radius.", vbExclamation, "Corner radius"
+        Exit Sub
+    End If
+
+    If ActiveWindow.Selection.Type <> ppSelectionShapes Then
+        MsgBox "Select one or more target shapes.", vbExclamation, "Corner radius"
+        Exit Sub
+    End If
+
+    For Each shp In ActiveWindow.Selection.ShapeRange
+        minSide = shp.Width
+        If shp.Height < minSide Then minSide = shp.Height
+        If minSide > 0 Then
+            newAdj = StoredCornerRadius / minSide
+            If newAdj > 0.5 Then newAdj = 0.5
+            If newAdj < 0 Then newAdj = 0
+
+            On Error Resume Next
+            shp.Adjustments.Item(1) = newAdj
+            On Error GoTo 0
+        End If
+    Next shp
+End Sub
+
+' ======================= Video geometry ===============================
+Public Sub CopyVideoGeometry()
+    Dim shp As Shape
+
+    If ActiveWindow.Selection.Type <> ppSelectionShapes Then
+        MsgBox "Select a video.", vbExclamation, "Video geometry"
+        Exit Sub
+    End If
+
+    If ActiveWindow.Selection.ShapeRange.Count <> 1 Then
+        MsgBox "Select one video only.", vbExclamation, "Video geometry"
+        Exit Sub
+    End If
+
+    Set shp = ActiveWindow.Selection.ShapeRange(1)
+    savedLeft = shp.Left
+    savedTop = shp.Top
+    savedWidth = shp.Width
+    savedHeight = shp.Height
+    savedRotation = shp.Rotation
+    geometrySaved = True
+End Sub
+
+Public Sub PasteVideoGeometry()
+    Dim shp As Shape
+
+    If Not geometrySaved Then
+        MsgBox "Copy geometry from the source video first.", vbExclamation, "Video geometry"
+        Exit Sub
+    End If
+
+    If ActiveWindow.Selection.Type <> ppSelectionShapes Then
+        MsgBox "Select the target video.", vbExclamation, "Video geometry"
+        Exit Sub
+    End If
+
+    If ActiveWindow.Selection.ShapeRange.Count <> 1 Then
+        MsgBox "Select one video only.", vbExclamation, "Video geometry"
+        Exit Sub
+    End If
+
+    Set shp = ActiveWindow.Selection.ShapeRange(1)
+    With shp
+        .LockAspectRatio = msoFalse
+        .Left = savedLeft
+        .Top = savedTop
+        .Width = savedWidth
+        .Height = savedHeight
+        .Rotation = savedRotation
+    End With
+End Sub
+
+' ======================= Gallery slide links ===========================
+Public Sub BuildGalleryLinks()
+    Dim pres As Presentation
+    Dim firstSlide As Long
+    Dim lastSlide As Long
+    Dim inputValue As String
+
+    Dim sld As Slide
+    Dim targetSld As Slide
+    Dim hotspots() As Object
+    Dim hotspotCount As Long
+    Dim currentSlide As Long
+    Dim j As Long
+    Dim k As Long
+    Dim galleryCount As Long
+    Dim currentGalleryIndex As Long
+    Dim tmp As Object
+
+    On Error Resume Next
+    Set pres = ActivePresentation
+    On Error GoTo 0
+    If pres Is Nothing Then
+        MsgBox "Open a presentation first.", vbExclamation, "Gallery links"
+        Exit Sub
+    End If
+
+    inputValue = InputBox("First slide number (1-" & pres.Slides.Count & "):", _
+                          "Gallery links - First slide", "1")
+    If Len(Trim$(inputValue)) = 0 Then Exit Sub
+    If Not ParseSlideNumber(inputValue, pres.Slides.Count, firstSlide) Then
+        MsgBox "Enter a whole slide number from 1 to " & pres.Slides.Count & ".", _
+               vbExclamation, "Gallery links"
+        Exit Sub
+    End If
+
+    inputValue = InputBox("Last slide number (" & firstSlide & "-" & pres.Slides.Count & "):", _
+                          "Gallery links - Last slide", CStr(pres.Slides.Count))
+    If Len(Trim$(inputValue)) = 0 Then Exit Sub
+    If Not ParseSlideNumber(inputValue, pres.Slides.Count, lastSlide) Then
+        MsgBox "Enter a whole slide number from " & firstSlide & " to " & _
+               pres.Slides.Count & ".", vbExclamation, "Gallery links"
+        Exit Sub
+    End If
+
+    If lastSlide < firstSlide Then
+        MsgBox "The last slide cannot come before the first slide.", _
+               vbExclamation, "Gallery links"
+        Exit Sub
+    End If
+
+    galleryCount = lastSlide - firstSlide + 1
+
+    ' Preflight all slides: do not leave half the links updated if a slide
+    ' is missing hotspots.
+    For currentSlide = firstSlide To lastSlide
+        Set sld = pres.Slides(currentSlide)
+        hotspotCount = GetGalleryHotspots(sld, hotspots)
+        If hotspotCount < galleryCount Then
+            MsgBox "Slide " & currentSlide & ":" & vbCrLf & _
+                   "Found only " & hotspotCount & _
+                   " invisible rectangles, but gallery contains " & _
+                   galleryCount & " slides.", vbExclamation, "Gallery links"
+            Exit Sub
+        End If
+    Next currentSlide
+
+    ' Assign links to invisible rectangles, sorted from left to right.
+    For currentSlide = firstSlide To lastSlide
+        Set sld = pres.Slides(currentSlide)
+        currentGalleryIndex = currentSlide - firstSlide + 1
+        hotspotCount = GetGalleryHotspots(sld, hotspots)
+
+        For j = 1 To hotspotCount - 1
+            For k = j + 1 To hotspotCount
+                If hotspots(k).Left < hotspots(j).Left Then
+                    Set tmp = hotspots(j)
+                    Set hotspots(j) = hotspots(k)
+                    Set hotspots(k) = tmp
+                End If
+            Next k
+        Next j
+
+        For j = 1 To galleryCount
+            With hotspots(j).ActionSettings(ppMouseClick)
+                .Action = ppActionNone
+            End With
+
+            If j <> currentGalleryIndex Then
+                Set targetSld = pres.Slides(firstSlide + j - 1)
+                With hotspots(j).ActionSettings(ppMouseClick)
+                    .Action = ppActionHyperlink
+                    .Hyperlink.SubAddress = _
+                        targetSld.SlideID & "," & _
+                        targetSld.SlideIndex & "," & _
+                        targetSld.Name
+                End With
+            End If
+        Next j
+    Next currentSlide
+
+    MsgBox "Gallery links created for slides " & firstSlide & _
+           "-" & lastSlide & ".", vbInformation, "Gallery links"
+End Sub
+
+Private Function ParseSlideNumber(ByVal raw As String, ByVal maximum As Long, _
+                                  ByRef result As Long) As Boolean
+    Dim s As String
+    s = Trim$(raw)
+    If Len(s) = 0 Or Len(s) > 9 Then Exit Function
+    If s Like "*[!0-9]*" Then Exit Function
+
+    result = CLng(s)
+    If result < 1 Or result > maximum Then Exit Function
+    ParseSlideNumber = True
+End Function
+
+Private Function GetGalleryHotspots(ByVal sld As Slide, _
+                                    ByRef hotspots() As Object) As Long
+    Dim shp As Shape
+    Dim count As Long
+    count = 0
+
+    For Each shp In sld.Shapes
+        If shp.Type = msoAutoShape Then
+            If shp.AutoShapeType = msoShapeRectangle Then
+                If shp.Fill.Visible = msoFalse And shp.Line.Visible = msoFalse Then
+                    count = count + 1
+                    ReDim Preserve hotspots(1 To count)
+                    Set hotspots(count) = shp
+                End If
+            End If
+        End If
+    Next shp
+
+    GetGalleryHotspots = count
+End Function
+
+
+' ======================= Ribbon button callbacks =======================
+Public Sub RibbonCopyCornerRadius(control As IRibbonControl)
+    CopyCornerRadius
+End Sub
+
+Public Sub RibbonPasteCornerRadius(control As IRibbonControl)
+    PasteCornerRadius
+End Sub
+
+Public Sub RibbonBuildGalleryLinks(control As IRibbonControl)
+    BuildGalleryLinks
+End Sub
+
+Public Sub RibbonCopyVideoGeometry(control As IRibbonControl)
+    CopyVideoGeometry
+End Sub
+
+Public Sub RibbonPasteVideoGeometry(control As IRibbonControl)
+    PasteVideoGeometry
+End Sub
+
