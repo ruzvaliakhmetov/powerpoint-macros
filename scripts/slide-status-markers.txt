@@ -1,0 +1,148 @@
+Option Explicit
+
+' Slide status markers for PowerPoint (macOS / Windows).
+' Reference layout: 1280 x 720, circle diameter 140,
+' 20 units above the slide edge and 20 units from the right edge.
+' From left to right: cyan, magenta, green. Circles touch.
+'
+Private Const BASE_SLIDE_WIDTH As Double = 1280#
+Private Const BASE_SLIDE_HEIGHT As Double = 720#
+Private Const BASE_DIAMETER As Double = 140#
+Private Const BASE_OFFSET As Double = 20#
+Private Const MARKER_TAG As String = "PPT_STATUS_MARKER"
+
+' =========================== Add markers ============================
+
+Public Sub AddCyanMarker()
+    AddStatusMarker "CYAN", RGB(0, 255, 255), 2
+End Sub
+
+Public Sub AddMagentaMarker()
+    AddStatusMarker "MAGENTA", RGB(255, 0, 255), 1
+End Sub
+
+Public Sub AddGreenMarker()
+    AddStatusMarker "GREEN", RGB(0, 255, 0), 0
+End Sub
+
+Private Sub AddStatusMarker(ByVal markerID As String, _
+                            ByVal fillColor As Long, _
+                            ByVal positionFromRight As Long)
+    Dim sld As Slide
+    Dim shp As Shape
+    Dim marker As Shape
+    Dim slideW As Double
+    Dim slideH As Double
+    Dim scaleFactor As Double
+    Dim diameter As Double
+    Dim outsideTop As Double
+    Dim rightInset As Double
+
+    ' ActiveWindow.View.Slide works in Normal and Slide views.
+    On Error Resume Next
+    Set sld = ActiveWindow.View.Slide
+    On Error GoTo 0
+
+    If sld Is Nothing Then
+        MsgBox "Open a slide in Normal view first.", vbExclamation, "Slide status"
+        Exit Sub
+    End If
+
+    slideW = ActivePresentation.PageSetup.SlideWidth
+    slideH = ActivePresentation.PageSetup.SlideHeight
+
+    ' PowerPoint stores slide dimensions in points. Scale the reference
+    ' layout proportionally for other slide sizes and aspect ratios.
+    scaleFactor = slideW / BASE_SLIDE_WIDTH
+    If slideH / BASE_SLIDE_HEIGHT < scaleFactor Then
+        scaleFactor = slideH / BASE_SLIDE_HEIGHT
+    End If
+
+    diameter = BASE_DIAMETER * scaleFactor
+    outsideTop = BASE_OFFSET * scaleFactor
+    rightInset = BASE_OFFSET * scaleFactor
+
+    ' Reuse a marker of this type on the current slide, if one exists.
+    ' Pressing the same button twice should not create duplicates.
+    For Each shp In sld.Shapes
+        On Error Resume Next
+        If shp.Tags(MARKER_TAG) = markerID Then Set marker = shp
+        On Error GoTo 0
+        If Not marker Is Nothing Then Exit For
+    Next shp
+
+    If marker Is Nothing Then
+        Set marker = sld.Shapes.AddShape(msoShapeOval, 0, 0, diameter, diameter)
+        marker.Tags.Add MARKER_TAG, markerID
+    End If
+
+    With marker
+        .LockAspectRatio = msoFalse
+        .Width = diameter
+        .Height = diameter
+        .Left = slideW - rightInset - diameter * (positionFromRight + 1)
+        .Top = -outsideTop
+        .Fill.Visible = msoTrue
+        .Fill.Solid
+        .Fill.ForeColor.RGB = fillColor
+        .Fill.Transparency = 0
+        .Line.Visible = msoFalse
+        .ZOrder msoBringToFront
+    End With
+End Sub
+
+' ========================== Remove markers ===========================
+
+Public Sub RemoveStatusColors()
+    Dim answer As VbMsgBoxResult
+    Dim pres As Presentation
+    Dim sld As Slide
+    Dim i As Long
+
+    On Error Resume Next
+    Set pres = ActivePresentation
+    On Error GoTo 0
+
+    If pres Is Nothing Then
+        MsgBox "Open a presentation first.", vbExclamation, "Remove status colors"
+        Exit Sub
+    End If
+
+    answer = MsgBox( _
+        "Remove every shape with a solid cyan (#00FFFF), " & _
+        "magenta (#FF00FF), or green (#00FF00) fill " & _
+        "from ALL slides?" & vbCrLf & vbCrLf & _
+        "This includes objects NOT created by these macros. " & _
+        "This action cannot be undone reliably. Continue?", _
+        vbYesNo + vbExclamation + vbDefaultButton2, _
+        "Remove status colors")
+
+    If answer <> vbYes Then Exit Sub
+
+    ' Iterate backwards so deleting a shape does not shift later indices.
+    For Each sld In pres.Slides
+        For i = sld.Shapes.Count To 1 Step -1
+            If HasStatusFill(sld.Shapes(i)) Then
+                sld.Shapes(i).Delete
+            End If
+        Next i
+    Next sld
+End Sub
+
+Private Function HasStatusFill(ByVal shp As Shape) As Boolean
+    Dim colorValue As Long
+
+    ' Check only visible solid fills. Group members are not traversed.
+    On Error GoTo CannotReadFill
+    If shp.Fill.Visible <> msoTrue Then Exit Function
+    If shp.Fill.Type <> msoFillSolid Then Exit Function
+    If shp.Fill.Transparency >= 1 Then Exit Function
+
+    colorValue = shp.Fill.ForeColor.RGB
+    Select Case colorValue
+        Case RGB(0, 255, 255), RGB(255, 0, 255), RGB(0, 255, 0)
+            HasStatusFill = True
+    End Select
+
+CannotReadFill:
+End Function
